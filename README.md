@@ -41,23 +41,149 @@ trainer who built it is gone; file 14 replaces him.
 
 ## SETUP — DAY 0/1 CHECKLIST (≈1 hour + the exam)
 
-1. **Save everything.** Put all 24 files in a permanent folder, ideally a
-   git repo (`dns-mastery/`). These files are yours to edit — corrections
-   and annotations are part of the method (file 17).
-2. **Create the journal structure** (from 00):
-   ```
-   dns-journal/
-     daily/  proofs/  exams/  weak-topics.md  errata.md
-   ```
-3. **Import the Anki deck:** Anki → File → Import → `18_ANKI_DECK.tsv`
-   (it self-configures; deck name "DNS Mastery").
-4. **Verify prerequisites:** Windows + WSL2 + Docker
-   (`docker info` works from WSL). Nothing else needed.
-5. **Take the baseline exam** (file 01): 90 min, closed book. Grade with
-   the rubric. Log score + gap analysis in `exams/`. Your rubric band
-   tells you whether to adjust the program (see file 01 §rubric).
-6. **Read file 14** (Mentor Loop) and file 16 §1–3 tonight — tomorrow's
-   lab build depends on the access-pattern decision in 16.
+This checklist is written from an actual first run (Windows 11 + Docker
+Desktop + WSL2 Ubuntu), including every snag that first run hit and its
+exact fix — not generic advice. Follow it in order.
+
+### 1. Get the repo onto your machine
+
+```powershell
+mkdir C:\dev\dns-mastery
+cd C:\dev\dns-mastery
+git clone https://github.com/<your-username>/dns-mastery.git .
+```
+(Or, if starting from the zip instead of a clone: extract it here so the
+24 numbered files + `dns-journal/` sit directly at `C:\dev\dns-mastery\`
+— NOT inside a nested subfolder. Verify with `ls` — you should see
+`00_PACKAGE_MAP...`, `README.md`, etc. directly, no extra folder layer.
+If you do have a nested folder from an extract, flatten it:
+```powershell
+Move-Item .\<nested-folder>\* . -Force
+Move-Item .\<nested-folder>\.gitattributes . -Force -ErrorAction SilentlyContinue
+Move-Item .\<nested-folder>\.gitignore . -Force -ErrorAction SilentlyContinue
+Remove-Item .\<nested-folder> -Recurse -Force
+git add -A; git commit -m "Flatten repo structure"; git push
+```
+Confirm on GitHub: the breadcrumb should read just `<your-repo> /
+README.md`, not `<your-repo> / <nested-folder> / README.md`.
+
+### 2. Verify Docker Desktop + WSL2 (the real check, not "should work")
+
+```powershell
+docker info
+```
+If this errors with `failed to connect to the docker API` — **Docker
+Desktop isn't running.** Open it from the Start menu, wait ~30-60s for
+the whale icon to settle, retry.
+
+Once it responds, confirm the backend:
+```powershell
+docker info | findstr /i "operating system"
+```
+Expect `Operating System: Docker Desktop` with a
+`...-microsoft-standard-WSL2` kernel — this confirms you're on the
+Docker Desktop VM-based architecture, which means **container IPs will
+NOT be reachable directly from WSL** by default. This is exactly the
+reality file 16 describes — you'll use the client-container pattern
+(Pattern A) there, not raw container-IP access.
+
+Also check for surprises before building anything:
+```powershell
+docker ps -a
+```
+Confirms no existing container already uses port 53/5353 or a name
+this lab will create (`root1`, `tld1`, `auth1`, `auth2`, `auth1sec`,
+`resolver1`, `fwd1`, `client`). If you already run a Prometheus/Grafana
+stack (e.g. from kekobox/home-monitoring), note its container names now
+— file 15 (Observability Annex) will extend that exact stack in Week 6,
+not create a new one.
+
+### 3. Enable Docker inside WSL (the step people miss)
+
+```powershell
+wsl -l -v
+```
+If your distro (e.g. Ubuntu) shows `Stopped`, start it: `wsl -d Ubuntu`.
+
+Inside that WSL shell:
+```bash
+date                      # sanity-check the clock NOW — see note below
+which docker
+docker info
+```
+**If `which docker` points at a path under `/mnt/c/...`** (a Windows
+binary shimmed into WSL) or **`docker info` says "could not be found in
+this WSL 2 distro"** — WSL Integration is off. Fix: Docker Desktop →
+**Settings → Resources → WSL Integration** → enable the general toggle
+AND the specific toggle for your distro → **Apply & Restart**.
+
+**If `docker info`/`docker ps` then says "permission denied ... docker.sock"**
+— your WSL user isn't in the `docker` group yet:
+```bash
+sudo usermod -aG docker $USER
+```
+Group changes need a fresh session to apply — either run `newgrp docker`
+in the same shell, or close the WSL window and reopen it
+(`wsl --shutdown` from PowerShell, then `wsl -d Ubuntu` again).
+
+Verify clean:
+```bash
+docker ps
+```
+should list your containers (or be empty on a fresh machine) with no
+error.
+
+**About that `date` check:** file 16 flags WSL clock drift after your
+laptop sleeps as a real, recurring cause of TSIG (`BADTIME`) and DNSSEC
+validation failures in Weeks 8–9 and 15 — nothing is "broken" in the
+lab, the VM's clock just lagged. Confirming it's sane today gives you a
+baseline; if labs misbehave later after a sleep/resume, `date` in WSL
+vs. your Windows clock is the first thing to check, and
+`sudo hwclock -s` (or `wsl --shutdown` + restart) is the fix.
+
+### 4. Create the journal structure (should already exist if you cloned
+   the repo/extracted the zip — verify, don't assume)
+
+```bash
+cd /mnt/c/dev/dns-mastery      # WSL path to the same folder
+find dns-journal -type f
+```
+Expect: `dns-journal/daily/.gitkeep`, `dns-journal/exams/.gitkeep`,
+`dns-journal/proofs/.gitkeep`, `dns-journal/errata.md`,
+`dns-journal/weak-topics.md`. If any are missing, either re-run
+`setup.sh` from the repo root or create them by hand per file 00.
+
+### 5. Install Anki and import the deck
+
+1. Download from **https://apps.ankiweb.net/** (Windows installer).
+2. Install, launch. The AnkiWeb account prompt on first run is optional
+   — skip it if you want to stay fully offline.
+3. **File → Import** → browse to `C:\dev\dns-mastery\18_ANKI_DECK.tsv`.
+   Anki auto-detects the format from the file's header lines. Confirm
+   the import dialog shows deck name **"DNS Mastery"**.
+4. Click **Import**. Expect: **"80 notes found in file. 80 new notes
+   imported."** with every row showing status "Added".
+5. Back on the main screen, confirm a deck called "DNS Mastery" exists
+   with 80 cards; open it and preview one card (front like
+   `[C01] Domain vs zone?`, back showing the answer plus bolded
+   **Why:** / **Trap:** lines) to confirm rendering is correct.
+
+### 6. Take the baseline exam
+
+Open `01_BASELINE_DIAGNOSTIC.md`. 90 minutes, closed book, no notes, no
+lab, no internet. Grade yourself against the rubric in that same file.
+Log your score and per-section breakdown in
+`dns-journal/exams/YYYY-MM-DD-baseline.md`. **This is the real starting
+gun** — whatever date you actually sit it becomes Day 1 of 132 (shift
+every date in file 03 accordingly if it's not literally 7 July; the
+Standing Rules at the end of file 03 already account for this).
+
+### 7. Read before tomorrow
+
+Read file 14 (Mentor Loop) and file 16 §1–3 tonight — tomorrow's Day 2
+lab build depends on the access-pattern decision made in file 16 (given
+the Docker Desktop architecture confirmed in step 2, you'll be using
+the **client-container pattern**, Pattern A).
 
 ## THE DAILY LOOP (2 hours, fixed — full detail in file 14)
 
