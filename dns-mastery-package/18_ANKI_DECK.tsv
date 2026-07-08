@@ -1,0 +1,83 @@
+#separator:tab
+#html:true
+#deck:DNS Mastery
+[C01] Domain vs zone?	Domain = namespace subtree; zone = administratively served portion bounded by delegation cuts.<br><b>Why:</b> the unit of authority/transfer/signing.<br><b>Trap:</b> assuming every subdomain is a zone.
+[C02] The four resolver roles?	Stub (asks, caches), recursive (iterates, caches), forwarder (delegates recursion upstream, caches), authoritative (serves zone data, AA).<br><b>Why:</b> every ticket starts by naming the role.<br><b>Trap:</b> "the DNS server" without a role.
+[C03] What does a referral contain?	Empty ANSWER; AUTHORITY = child NS; ADDITIONAL = glue; no AA.<br><b>Why:</b> the mechanism of iteration.<br><b>Trap:</b> glue is hint data, not parent authority.
+[C04] When is glue mandatory?	NS names in-bailiwick (inside the delegated zone).<br><b>Why:</b> circular dependency otherwise.<br><b>Trap:</b> out-of- bailiwick NS removes the need entirely.
+[C05] NXDOMAIN vs NODATA?	Name absent vs type absent (NOERROR/0 + SOA).<br><b>Why:</b> different causes, both negative-cached.<br><b>Trap:</b> empty non-terminals answer NODATA, never NXDOMAIN.
+[C06] Negative-cache duration?	min(SOA MINIMUM, SOA TTL) from the moment cached, per cache.<br><b>Why:</b> create-after-query latency.<br><b>Trap:</b> record TTL is irrelevant to negatives.
+[C07] Three DNS-over-TCP triggers?	TC=1 retry; AXFR/IXFR; policy/ DoT.<br><b>Why:</b> "UDP-only firewall" = intermittent size-dependent failures.<br><b>Trap:</b> "TCP only for transfers."
+[C08] Why 1232 for EDNS?	Fits min-MTU paths unfragmented — silent fragment loss becomes clean TC→TCP.<br><b>Why:</b> modern transport posture.<br><b>Trap:</b> the CLIENT advertises the size.
+[C09] Split-horizon leak — four horsemen?	NAT, new subnets, VPN pools, ACL order.<br><b>Why:</b> view selection = source IP + first match.<br><b>Trap:</b> "data changed" when it differs by vantage.
+[C10] forward only vs first under dead upstream?	only→SERVFAIL; first→own iteration IF hints/egress work.<br><b>Why:</b> untested fallback is theater.<br><b>Trap:</b> validate the fallback in lab.
+[C11] The three layers of truth (DDI)?	L1 objects (intent), L2 deployed zone data, L3 caches.<br><b>Why:</b> every finding names its layer.<br><b>Trap:</b> blaming L3 (TTL) for L1/L2 gaps.
+[C12] Five-layer cache map?	App → OS stub → forwarder → resolver node(s) → negatives within each.<br><b>Why:</b> staleness enumeration.<br><b>Trap:</b> the forgotten forwarder layer.
+[C13] Wildcard shadowing rule?	Any exact name (any type) stops wildcard synthesis for ALL types at that name.<br><b>Why:</b> a TXT add can kill A resolution.<br><b>Trap:</b> T10.
+[C14] CNAME exclusivity?	CNAME must be alone at its node (DNSSEC metadata excepted); never at apex.<br><b>Why:</b> §4 case 3 refusals.<br><b>Trap:</b> apex "ALIAS" = provider flattening, not CNAME.
+[C15] What does DNSSEC provide / not provide?	Authenticity + integrity; never confidentiality.<br><b>Why:</b> DoT/DoH is the privacy tool.<br><b>Trap:</b> "DNSSEC encrypts."
+[C16] Secure / insecure / bogus?	Validated (AD); provably unsigned (signed DS absence — resolves fine); should-validate-but-fails (SERVFAIL).<br><b>Why:</b> unsigned ≠ broken.<br><b>Trap:</b> the middle state exists by design.
+[C17] Where does DS live and what does it digest?	Parent zone; child's KSK.<br><b>Why:</b> the one record you don't control.<br><b>Trap:</b> stale DS after KSK roll = T30.
+[C18] Anycast's hidden cost?	Per-instance caches diverge behind one IP.<br><b>Why:</b> T28; monitoring must probe instances.<br><b>Trap:</b> flushing "the resolver" = flushing one instance.
+[C19] RPZ's two blind spots?	Clients on other resolvers/DoH; direct-to-IP traffic.<br><b>Why:</b> honest scoping to security teams.<br><b>Trap:</b> overselling.
+[C20] TTL 0 means?	No caching — every lookup rides to authority.<br><b>Why:</b> load + inherited authority availability per query.<br><b>Trap:</b> not "agile best practice."  ## B. FLAGS & RCODES
+[F01] qr aa rd — who answered?	An authoritative server, from zone data.<br><b>Why:</b> source truth.<br><b>Trap:</b> AA proves source, not correctness.
+[F02] qr rd ra, no aa, TTL draining?	Recursive resolver, cache.<br><b>Why:</b> provenance in one glance.<br><b>Trap:</b> draining across repeats to the SAME node.
+[F03] RD in a response?	Echo of the query — proves nothing about recursion happening.<br><b>Trap:</b> the echo.
+[F04] AD vs CD?	AD: responder validated DNSSEC; CD: querier says skip validation.<br><b>Why:</b> +cd is the DNSSEC bisector.<br><b>Trap:</b> AD ≠ "authoritative."
+[F05] TC=1 next step?	Retry same query over TCP.<br><b>Why:</b> normal protocol, only the failed TCP retry is an incident.<br><b>Trap:</b> treating TC as an error.
+[F06] SERVFAIL first suspicion?	The path/zone: upstream dead, broken delegation, expired zone, DNSSEC bogus — bisect per hop, +cd early.<br><b>Trap:</b> chains launder REFUSED into SERVFAIL.
+[F07] REFUSED meaning?	Policy at THAT responder (ACL/view/role).<br><b>Why:</b> read it at the hop that emitted it.<br><b>Trap:</b> REFUSED ≠ down (TCP conversation happened).
+[F08] Timeout meaning?	Transport — nothing DNS-level returned.<br><b>Why:</b> capture at server = cheapest bisect.<br><b>Trap:</b> ACLs REFUSE, they don't drop.
+[F09] +norecurse against a resolver?	Cache X-ray — answers only from cache.<br><b>Why:</b> staleness/liveness probe without polluting.<br><b>Trap:</b> per-node on farms.
+[F10] NOERROR + 0 answers + SOA in authority?	NODATA.<br><b>Why:</b> the SOA is the negative-cache timer.<br><b>Trap:</b> not an error.  ## C. RECORDS
+[R01] SOA SERIAL rule?	RFC 1982 arithmetic — secondaries act only on increase; backwards = frozen.<br><b>Why:</b> replication protocol in one number.<br><b>Trap:</b> recovery = retransfer or +2^31 wrap.
+[R02] SOA EXPIRE?	How long secondaries serve without successful refresh, then SERVFAIL.<br><b>Why:</b> your real DR deadline (T23).<br><b>Trap:</b> staleness invisible in flags until the cliff.
+[R03] SOA MINIMUM (modern)?	Negative-cache TTL (RFC 2308).<br><b>Why:</b> create-latency physics.<br><b>Trap:</b> historic "default TTL" meaning is dead.
+[R04] MX two rules?	Lowest preference first; target = hostname with A/AAAA — no CNAME, no IP literal.<br><b>Trap:</b> the CNAME target.
+[R05] SRV fields?	priority weight port target (at _service._proto.name).<br><b>Why:</b> AD lives on these.<br><b>Trap:</b> weight only among equal priorities.
+[R06] Long TXT mechanics?	255-byte strings, multiple quoted segments concatenated by consumers.<br><b>Why:</b> DKIM truncation incidents.<br><b>Trap:</b> exactly ONE v=spf1 per name.
+[R07] PTR owner for 10.10.20.15?	15.20.10.10.in-addr.arpa.<br><b>Why:</b> octet reversal reflex.<br><b>Trap:</b> nothing links PTR↔A except process.
+[R08] CAA does?	Which CAs may issue certs; walked up labels at issuance.<br><b>Why:</b> "cert renewal failed" tickets.<br><b>Trap:</b> absent CAA = any CA.
+[R09] Round-robin caching?	Whole RRset cached per TTL; rotation at serving side; balance averages across clients.<br><b>Trap:</b> "duplicate" deletion = capacity surgery (T06).
+[R10] Trailing-dot bug?	Dotless target gets $ORIGIN appended → name.zone.zone NXDOMAIN.<br><b>Why:</b> the classic zone-file hour-burner.<br><b>Trap:</b> hides in CNAME/MX/SRV targets.  ## D. BIND OPERATIONS
+[B01] Zone-change lifecycle?	edit→checkzone→serial++→reload→ NOTIFY→SOA check→IXFR/AXFR→converged→caches drain.<br><b>Why:</b> name the failure at each arrow.<br><b>Trap:</b> NOTIFY is a hint; REFRESH is the guarantee.
+[B02] IXFR needs?	Delta history (journal; static zones need ixfr-from-differences); else clean AXFR fallback.<br><b>Trap:</b> fallback is correct behavior, not an error.
+[B03] TSIG log triage?	BADSIG=secret, BADTIME=clock, BADKEY=name, plain REFUSED=unsigned vs key ACL.<br><b>Why:</b> four different fixes.<br><b>Trap:</b> NTP is a DNS dependency.
+[B04] freeze/thaw contract?	Flush journal→file, suspend updates, edit, resume.<br><b>Why:</b> dynamic-zone truth = journal+memory (T21).<br><b>Trap:</b> hand-edit without it = desync.
+[B05] rndc reload vs reconfig?	reload re-reads zones; reconfig = config + NEW zones only.<br><b>Why:</b> busy-server safety.
+[B06] One-command estate audit?	named-checkconf -z (config + every zone load).<br><b>Why:</b> triage step 2, always.<br><b>Trap:</b> passes ≠ semantically right data.
+[B07] zonestatus gives?	Loaded/serial/type/refresh timers/expiry countdown.<br><b>Why:</b> THE secondary-health command.<br><b>Trap:</b> check before any surgery.
+[B08] BIND triage order?	status → checkconf -z → zonestatus → logs → dig local (right view) → dig remote → surgery last.<br><b>Why:</b> evidence before change.<br><b>Trap:</b> dig-and-flush reflex.
+[B09] allow-update vs update-policy?	Whole-zone grant vs per-key/name/type least privilege.<br><b>Why:</b> AD-style self-updates pattern.<br><b>Trap:</b> unkeyed allow-update = anyone writes.
+[B10] RRL's slip trick?	Periodic TC replies — real clients retry TCP, spoofed victims get nothing.<br><b>Why:</b> amplification defense that spares users.
+[B11] Query log flags +E T D S?	RD, EDNS, TCP, DO, TSIG-signed.<br><b>Why:</b> read the line, know the client.
+[B12] Pre-deletion blast-radius technique?	Grep N-day query logs for the name; hits = alive, find sources.<br><b>Why:</b> prevents T-class deletion incidents.<br><b>Trap:</b> external verification TXTs never show liveness.  ## E. EFFICIENTIP / DDI
+[E01] "Already exists" four realities?	Exact dup / same-name- diff-value / type conflict / automation collision.<br><b>Why:</b> four different actions.<br><b>Trap:</b> one generic response.
+[E02] Smart architecture =?	Template materializing one logical zone as wired primary/secondaries across members.<br><b>Why:</b> it's BIND underneath — Chapter 4 skills apply.<br><b>Trap:</b> hand edits get overwritten.
+[E03] Auto-PTR silent failure?	Reverse zone not under platform management → forward-only creates.<br><b>Why:</b> drift class #2.<br><b>Trap:</b> "IPAM keeps it consistent" — only for managed paths.
+[E04] L1≠L2 causes?	Staged change, failed push, unreachable agent, hand-edit divergence.<br><b>Why:</b> T20/T47.<br><b>Trap:</b> the TTL reflex.
+[E05] Bulk import — four facts first?	Mapping preview, on-error semantics, dry-run existence, round-trip export.<br><b>Why:</b> T32 prevention.<br><b>Trap:</b> skip-and-continue + shifted columns.
+[E06] Value-match deletes because?	Name-only can hit round-robin members or wrong record.<br><b>Why:</b> T50 landmines.
+[E07] Rollback artifact standard?	Captured BEFORE apply, re-applicable form, covers all touched objects, handles half-applied.<br><b>Trap:</b> nightly backup ≠ rollback artifact.
+[E08] Break-glass rule?	Direct edits only with mandatory reconciliation before next deploy.<br><b>Why:</b> T47's second outage.<br><b>Trap:</b> "faster on the server."  ## F. TROUBLESHOOTING DECISION POINTS
+[T01] Wrong answer — opening move?	Provenance ladder: client → each resolver node → each auth → parent.<br><b>Why:</b> deepest wrong layer owns it.<br><b>Trap:</b> stopping at first plausible cause (T49).
+[T02] Timeout — opening move?	tcpdump at the server: did anything arrive?.<br><b>Why:</b> strongest bisect in networking (T25).<br><b>Trap:</b> theorizing past an empty capture.
+[T03] ~25% failure rate?	One stale node of four behind VIP/anycast.<br><b>Why:</b> T19/T28 fingerprint.<br><b>Trap:</b> diagnosing through the VIP.
+[T04] Fixed +N-second latency?	A corpse in a list (dead forwarder/NS) burning a timeout.<br><b>Why:</b> T15 fingerprint.<br><b>Trap:</b> "internet is slow."
+[T05] Size-dependent failure?	Transport: EDNS/fragmentation/TCP blocked — bufsize matrix + +tcp.<br><b>Why:</b> T16/T48.<br><b>Trap:</b> "record corrupt."
+[T06] SERVFAIL, +cd works?	DNSSEC validation class → delv → DS/DNSKEY/RRSIG chain.<br><b>Why:</b> three-query triage.<br><b>Trap:</b> only-my-resolver = my anchor/clock/path.
+[T07] Fix verified, user still broken?	Client-side cache — including Windows NEGATIVE cache.<br><b>Why:</b> Clear-DnsClientCache.<br><b>Trap:</b> declaring done at resolver level.
+[T08] dig fine, app broken?	hosts file / nsswitch / app cache / pinned IP — getent is the app's-eye view.<br><b>Why:</b> exoneration standard (T04).<br><b>Trap:</b> "not DNS" without naming the culprit.
+[T09] Evidence that expires fastest?	Cache state — dumpdb + timestamped digs BEFORE any flush.<br><b>Why:</b> flush destroys the crime scene.<br><b>Trap:</b> surgery first.
+[T10] "DNS propagated, done"?	Never — state convergence as clock time + negative-TTL tail.<br><b>Why:</b> TTL honesty = the senior sentence.<br><b>Trap:</b> the word "propagation" as weather.  ## G. COMMANDS (drill until reflex)
+[K01] Prove authoritative?	dig @auth name → aa + full TTL every repeat.<br><b>Trap:</b> AA ≠ correct data.
+[K02] Prove cached?	No aa + TTL draining across repeats (same node); +norecurse still answers.<br><b>Trap:</b> farm nodes differ.
+[K03] Negative-cache clock visible where?	SOA TTL in AUTHORITY of the NXDOMAIN/NODATA answer, draining.
+[K04] Targeted resolver purge?	rndc flushname (tree for subtrees; full flush = storm).<br><b>Trap:</b> per node.
+[K05] Windows cache view/purge?	Get-DnsClientCache / Clear-DnsClientCache (ipconfig /displaydns /flushdns) — negatives show as "Name does not exist.".
+[K06] Linux app-path lookup?	getent hosts name (NSS truth); dig bypasses NSS.<br><b>Trap:</b> 127.0.0.53 = resolved's view.
+[K07] DNSSEC verdict tool?	delv — "fully validated" vs failing link named.<br><b>Trap:</b> dig +cd first to classify.
+[K08] Transfer test by hand?	dig @primary zone AXFR (TSIG: -y type:name:secret).<br><b>Why:</b> also the security audit.<br><b>Trap:</b> unauth success = finding.
+[K09] Estate serial spread?	dig SOA @each-auth +short, compare.<br><b>Why:</b> free monitoring, catches T12.<br><b>Trap:</b> equality necessary, not sufficient post-incident (T44).
+[K10] Instance identity on anycast?	dig CH TXT id.server (or hostname.bind) @IP.<br><b>Why:</b> T28.
