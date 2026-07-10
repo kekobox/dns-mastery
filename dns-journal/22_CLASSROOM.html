@@ -1,0 +1,834 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>DNS Mastery Classroom</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/marked/12.0.2/marked.min.js"></script>
+<style>
+:root{
+  --bg:#10161d; --panel:#18212b; --panel2:#1d2835; --line:#26313d;
+  --text:#d7dee6; --dim:#8494a3; --faint:#5a6b7a;
+  --amber:#e8a13c; --amber-dim:#a97828;
+  --ok:#5fb376; --bad:#d06a5e; --half:#c9a34e;
+  --mono:ui-monospace,'Cascadia Code','JetBrains Mono',Consolas,monospace;
+  --sans:system-ui,-apple-system,'Segoe UI',Roboto,sans-serif;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%}
+body{background:var(--bg);color:var(--text);font-family:var(--sans);font-size:15px;line-height:1.55}
+#app{display:grid;grid-template-columns:230px 1fr;height:100vh}
+/* ---------- sidebar ---------- */
+#side{background:var(--panel);border-right:1px solid var(--line);padding:18px 16px;display:flex;flex-direction:column;gap:14px;overflow-y:auto}
+.brand{font-family:var(--mono);font-size:12px;letter-spacing:.14em;color:var(--dim);text-transform:uppercase}
+.brand b{color:var(--amber);display:block;font-size:15px;letter-spacing:.06em;margin-top:2px}
+.daybox{font-family:var(--mono)}
+.daybox .n{font-size:34px;color:var(--text);line-height:1}
+.daybox .d{font-size:11px;color:var(--dim);margin-top:3px}
+/* signature: TTL ring */
+.ttlwrap{display:flex;align-items:center;gap:10px}
+.ttlring{width:64px;height:64px;flex:none}
+.ttlring circle{fill:none;stroke-width:5}
+.ttlring .track{stroke:var(--line)}
+.ttlring .arc{stroke:var(--amber);stroke-linecap:round;transition:stroke-dashoffset 1s linear}
+.ttltxt{font-family:var(--mono)}
+.ttltxt .t{font-size:17px}
+.ttltxt .l{font-size:10px;color:var(--faint);letter-spacing:.1em;text-transform:uppercase}
+@media (prefers-reduced-motion:reduce){.ttlring .arc{transition:none}}
+.phaselist{display:flex;flex-direction:column;gap:2px;font-family:var(--mono);font-size:12.5px}
+.phaselist .ph{padding:6px 8px;border-radius:4px;color:var(--dim);display:flex;gap:8px;align-items:center}
+.phaselist .ph .mk{width:12px;text-align:center;color:var(--faint)}
+.phaselist .ph.done .mk{color:var(--ok)} .phaselist .ph.done{color:var(--faint)}
+.phaselist .ph.cur{background:var(--panel2);color:var(--text)} .phaselist .ph.cur .mk{color:var(--amber)}
+.meter{margin-top:auto;font-family:var(--mono);font-size:11.5px;color:var(--dim);border-top:1px solid var(--line);padding-top:10px;display:flex;flex-direction:column;gap:4px}
+.meter b{color:var(--text);font-weight:500}
+.sbtn{background:none;border:1px solid var(--line);color:var(--dim);font-family:var(--mono);font-size:11px;padding:5px 8px;border-radius:4px;cursor:pointer;text-align:left}
+.sbtn:hover{color:var(--text);border-color:var(--faint)}
+/* ---------- main ---------- */
+#main{display:flex;flex-direction:column;overflow:hidden}
+#head{padding:14px 26px;border-bottom:1px solid var(--line);display:flex;align-items:baseline;gap:14px}
+#head h1{font-family:var(--mono);font-size:15px;font-weight:500;letter-spacing:.04em}
+#head .sub{color:var(--dim);font-size:13px}
+#content{flex:1;overflow-y:auto;padding:26px;max-width:880px;width:100%}
+#bar{border-top:1px solid var(--line);background:var(--panel);padding:12px 26px;display:flex;gap:10px;align-items:center}
+#bar .spacer{flex:1}
+#bar .qcount{font-family:var(--mono);font-size:12px;color:var(--dim)}
+button.pri{background:var(--amber);color:#141210;border:none;font-family:var(--mono);font-size:13px;font-weight:600;padding:9px 18px;border-radius:5px;cursor:pointer}
+button.pri:hover{background:#f4b256}
+button.pri:disabled{background:var(--amber-dim);cursor:wait}
+button.sec{background:none;border:1px solid var(--line);color:var(--text);font-family:var(--mono);font-size:12.5px;padding:8px 14px;border-radius:5px;cursor:pointer}
+button.sec:hover{border-color:var(--faint)}
+button:focus-visible{outline:2px solid var(--amber);outline-offset:2px}
+/* content blocks */
+.lesson{background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:20px 24px;margin-bottom:18px}
+.lesson h2,.lesson h3{font-family:var(--mono);font-weight:600;margin:14px 0 8px;font-size:15px;color:var(--amber)}
+.lesson h2:first-child,.lesson h3:first-child{margin-top:0}
+.lesson p{margin:8px 0}
+.lesson ul,.lesson ol{margin:8px 0 8px 22px}
+.lesson code{font-family:var(--mono);font-size:.9em;background:var(--panel2);padding:1px 5px;border-radius:3px;color:#e6c88a}
+.lesson pre{background:#0c1218;border:1px solid var(--line);border-radius:6px;padding:12px 14px;overflow-x:auto;margin:10px 0}
+.lesson pre code{background:none;padding:0;color:#c7d3de;font-size:12.5px}
+.lesson table{border-collapse:collapse;margin:10px 0;font-size:13.5px}
+.lesson th,.lesson td{border:1px solid var(--line);padding:5px 10px;text-align:left}
+.lesson th{color:var(--dim);font-family:var(--mono);font-size:12px}
+.lesson strong{color:#eef3f8}
+.qitem{background:var(--panel);border:1px solid var(--line);border-left:3px solid var(--amber);border-radius:6px;padding:14px 16px;margin-bottom:14px}
+.qitem .ql{font-family:var(--mono);font-size:11px;color:var(--amber);letter-spacing:.08em;text-transform:uppercase;margin-bottom:6px}
+.qitem .qq{margin-bottom:10px;white-space:pre-wrap}
+textarea{width:100%;background:#0c1218;border:1px solid var(--line);border-radius:5px;color:var(--text);font-family:var(--mono);font-size:13px;padding:10px 12px;min-height:88px;resize:vertical}
+textarea:focus{outline:none;border-color:var(--amber-dim)}
+input[type=text],input[type=password],select{background:#0c1218;border:1px solid var(--line);border-radius:5px;color:var(--text);font-family:var(--mono);font-size:13px;padding:8px 10px;width:100%}
+.keybox{background:#0c1218;border:1px dashed var(--faint);border-radius:6px;padding:12px 14px;margin-top:10px;font-size:13.5px;white-space:pre-wrap}
+.scorebtns{display:flex;gap:6px;margin-top:8px}
+.scorebtns button{flex:1;background:var(--panel2);border:1px solid var(--line);color:var(--dim);font-family:var(--mono);font-size:12px;padding:6px;border-radius:4px;cursor:pointer}
+.scorebtns button.on0{background:var(--bad);color:#fff;border-color:var(--bad)}
+.scorebtns button.onH{background:var(--half);color:#141210;border-color:var(--half)}
+.scorebtns button.on1{background:var(--ok);color:#fff;border-color:var(--ok)}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:18px 20px;margin-bottom:16px}
+.card h3{font-family:var(--mono);font-size:13px;color:var(--amber);letter-spacing:.06em;margin-bottom:10px;text-transform:uppercase}
+.grade{display:flex;gap:12px;align-items:baseline;border-bottom:1px solid var(--line);padding:10px 0}
+.grade:last-child{border:none}
+.grade .gs{font-family:var(--mono);font-size:15px;min-width:64px}
+.grade .gs.g1{color:var(--ok)} .grade .gs.gh{color:var(--half)} .grade .gs.g0{color:var(--bad)}
+.grade .gf{font-size:13.5px;color:var(--dim)}
+.grade .gf b{color:var(--text)}
+.menu{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:6px}
+.menu button{background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:16px;color:var(--text);cursor:pointer;text-align:left;font-family:var(--sans)}
+.menu button:hover{border-color:var(--amber-dim)}
+.menu button .mt{font-family:var(--mono);color:var(--amber);font-size:13px;margin-bottom:4px}
+.menu button .md{font-size:12.5px;color:var(--dim)}
+.note{font-size:12.5px;color:var(--dim);margin:8px 0}
+.err{color:var(--bad);font-family:var(--mono);font-size:12.5px;margin-top:8px;white-space:pre-wrap}
+.pill{display:inline-block;font-family:var(--mono);font-size:11px;border:1px solid var(--line);border-radius:20px;padding:2px 10px;color:var(--dim);margin:2px 3px 2px 0}
+.pill.ok{color:var(--ok);border-color:var(--ok)}
+.pill.miss{color:var(--bad);border-color:var(--bad)}
+.setrow{display:flex;gap:10px;align-items:center;margin-bottom:10px}
+.setrow label{font-family:var(--mono);font-size:12px;color:var(--dim);min-width:150px}
+dialog{background:var(--panel);color:var(--text);border:1px solid var(--line);border-radius:10px;padding:22px;max-width:560px;width:92%}
+dialog::backdrop{background:rgba(6,10,14,.7)}
+.chat{display:flex;flex-direction:column;gap:10px}
+.msg{padding:10px 14px;border-radius:8px;max-width:85%;white-space:pre-wrap;font-size:14px}
+.msg.u{background:var(--panel2);align-self:flex-end}
+.msg.a{background:var(--panel);border:1px solid var(--line);align-self:flex-start}
+@media(max-width:760px){#app{grid-template-columns:1fr}#side{flex-direction:row;flex-wrap:wrap;border-right:none;border-bottom:1px solid var(--line)}.meter{margin-top:0;border:none;padding:0}}
+</style>
+</head>
+<body>
+<div id="app">
+  <aside id="side">
+    <div class="brand">dns mastery<b>classroom</b></div>
+    <div class="daybox"><div class="n" id="dayN">—</div><div class="d" id="dayD">load curriculum</div></div>
+    <div class="ttlwrap">
+      <svg class="ttlring" viewBox="0 0 64 64" aria-hidden="true">
+        <circle class="track" cx="32" cy="32" r="27"/>
+        <circle class="arc" id="ttlArc" cx="32" cy="32" r="27" stroke-dasharray="169.6" stroke-dashoffset="0"/>
+      </svg>
+      <div class="ttltxt"><div class="t" id="ttlT">150:00</div><div class="l">session ttl</div></div>
+    </div>
+    <div class="phaselist" id="phaseList"></div>
+    <div class="meter">
+      <div>spend <b id="cost">€0.000</b> · calls <b id="calls">0</b></div>
+      <button class="sbtn" onclick="UI.home()">⌂ session menu</button>
+      <button class="sbtn" onclick="Exports.state()">↓ export STATE.md</button>
+      <button class="sbtn" onclick="Exports.journal()">↓ export journal</button>
+      <button class="sbtn" onclick="Exports.backup()">↓ full backup</button>
+      <button class="sbtn" onclick="UI.settings()">⚙ settings</button>
+    </div>
+  </aside>
+  <main id="main">
+    <div id="head"><h1 id="hTitle">Classroom</h1><span class="sub" id="hSub"></span></div>
+    <div id="content"></div>
+    <div id="bar"></div>
+  </main>
+</div>
+<dialog id="dlg"></dialog>
+<script>
+/* =========================================================
+   DNS Mastery Classroom — single-file app.
+   Local-first: curriculum + state in localStorage.
+   API only for judgment (batched) and generation (cached banks).
+   ========================================================= */
+'use strict';
+const LS = {
+  get(k,d){ try{const v=localStorage.getItem('dmc_'+k);return v?JSON.parse(v):d}catch(e){return d} },
+  set(k,v){ localStorage.setItem('dmc_'+k, JSON.stringify(v)) }
+};
+const md = s => window.marked ? marked.parse(s) : '<pre>'+esc(s)+'</pre>';
+const esc = s => s.replace(/[&<>]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;'}[c]));
+const $ = id => document.getElementById(id);
+
+/* ---------------- state ---------------- */
+const DEFAULT_STATE = {
+  day: 2, day1date: '2026-07-08',
+  scores: { baseline: 35, weekly: [], tickets: [], oral: [], capstones: [] },
+  weakTopics: [
+    'Cold-cache resolution flow (mechanism level)',
+    'Flag semantics + output interpretation',
+    'Diagnosis discipline: cause/proof/fix',
+    'Negative caching / SOA minimum',
+    'Delegation + glue mechanics'
+  ],
+  adjustments: [
+    '0-39 band: +30min L1-2 flashcards, Weeks 1-4; no compression',
+    'Week-4 baseline retake gate armed (target 60-79)'
+  ],
+  gates: {}, journal: [], errata: [],
+  done: {}   // day -> {score,max,date}
+};
+let S = LS.get('state', null) || structuredClone(DEFAULT_STATE);
+const saveS = () => LS.set('state', S);
+const dayDate = n => { const d=new Date(S.day1date+'T12:00:00'); d.setDate(d.getDate()+(n-1));
+  return d.toLocaleDateString('en-GB',{weekday:'short',day:'2-digit',month:'short'}); };
+
+/* ---------------- curriculum ---------------- */
+let CUR = LS.get('curriculum', {});   // filename -> text
+const FILES_EXPECTED = ['00','01','02','03','04_TEACHER_MANUAL_PART1','04_TEACHER_MANUAL_PART2','04_TEACHER_MANUAL_PART3','04_TEACHER_MANUAL_PART4','04_TEACHER_MANUAL_PART5','05','06','07','08','09_TICKETS_PART1','09_TICKETS_PART2','10','12','13','14'];
+const fileByPrefix = p => { const k=Object.keys(CUR).find(f=>f.startsWith(p)); return k?CUR[k]:''; };
+const haveCurriculum = () => !!fileByPrefix('03') && !!fileByPrefix('04_TEACHER_MANUAL_PART1') && !!fileByPrefix('06');
+
+/* ---------------- calendar parser ---------------- */
+function calendarRows(){
+  const t = fileByPrefix('03'); if(!t) return {};
+  const rows = {};
+  for(const line of t.split('\n')){
+    const m = line.match(/^\|\s*(\d+)\s*\|\s*([^|]+?)\s*\|([^|]*)\|([^|]*)\|([^|]*)\|([^|]*)\|/);
+    if(m){ rows[+m[1]] = { day:+m[1], date:m[2].trim(), topic:m[3].trim(), hands:m[4].trim(), close:m[5].trim(), review:m[6].trim(), raw:line }; continue; }
+    const m2 = line.match(/^\|\s*(\d+)\s*\|\s*([^|]+?)\s*\|([^|]*)\|([^|]*)\|([^|]*)\|/); // week-19 5-col
+    if(m2 && !rows[+m2[1]]) rows[+m2[1]] = { day:+m2[1], date:m2[2].trim(), topic:m2[3].trim(), hands:m2[4].trim(), close:m2[5].trim(), review:'', raw:line };
+  }
+  return rows;
+}
+/* ---------------- slicers ---------------- */
+function sliceHeading(text, headRe){
+  const re = new RegExp('^## .*$','gm'); let start=-1, all=[...text.matchAll(re)];
+  for(let i=0;i<all.length;i++){ if(headRe.test(all[i][0])){ start=all[i].index;
+      const end = i+1<all.length ? all[i+1].index : text.length;
+      return text.slice(start,end).trim(); } }
+  return '';
+}
+function getTM(ch, mi){
+  for(let p=1;p<=5;p++){ const t=fileByPrefix('04_TEACHER_MANUAL_PART'+p); if(!t) continue;
+    const s = sliceHeading(t, new RegExp('^## TM '+ch+'\\.'+mi+'\\b'));
+    if(s) return s; }
+  return '';
+}
+function getLAB(id){
+  const t=fileByPrefix('06'); if(!t) return '';
+  let s = sliceHeading(t, new RegExp('^## LAB '+id+'\\b'));
+  if(!s && /[ab]$/.test(id)) s = sliceHeading(t, new RegExp('^## LAB '+id.replace(/[ab]$/,'')+'\\b'));
+  if(!s) s = sliceHeading(t, new RegExp('^## LAB '+id.replace(/[ab]$/,'')+' \\('));
+  return s;
+}
+function getEIP(n){ const t=fileByPrefix('07'); if(!t)return'';
+  const re=new RegExp('^## §'+n+' ','m'); const m=t.match(re); if(!m)return'';
+  const rest=t.slice(m.index); const nx=rest.slice(3).search(/^## §/m);
+  return nx>0?rest.slice(0,nx+3):rest; }
+function getTicket(n){
+  const t=(fileByPrefix('09_TICKETS_PART1')||'')+'\n'+(fileByPrefix('09_TICKETS_PART2')||'');
+  const re=new RegExp('^### T'+String(n).padStart(2,'0')+' —','m'); const m=t.match(re); if(!m)return null;
+  const rest=t.slice(m.index); const nx=rest.slice(4).search(/^### T\d\d|^---$/m);
+  const block = nx>0?rest.slice(0,nx+4):rest;
+  const cut = block.search(/\*\*(Path|Diagnosis):\*\*/);
+  return { n, visible: cut>0?block.slice(0,cut):block, full: block };
+}
+function getOral(n){
+  const t=fileByPrefix('10'); if(!t)return null;
+  const re=new RegExp('^\\*\\*Q'+n+'\\.','m'); const m=t.match(re); if(!m)return null;
+  const rest=t.slice(m.index); const nx=rest.slice(4).search(/^\*\*Q\d+\.|^## /m);
+  const block=(nx>0?rest.slice(0,nx+4):rest).trim();
+  const cut=block.search(/\nE:/);
+  return { n, q: cut>0?block.slice(0,cut):block, full: block };
+}
+function getFaults(){
+  const t=fileByPrefix('06'); const s=sliceHeading(t,/^## FAULT LIBRARY/); if(!s)return[];
+  return [...s.matchAll(/^\s*(\d+)\.\s+(.+)$/gm)].map(m=>({n:+m[1],
+    show:m[2].replace(/\*\([^)]*\)\*/g,'').trim(), full:m[2].trim()}));
+}
+function dayRefs(row){
+  const txt=[row.topic,row.hands,row.close,row.review].join(' ');
+  const refs={tm:[],labs:[],quiz:null,tickets:null,eip:[],cmd:/CMD/.test(txt),oral:[]};
+  for(const m of txt.matchAll(/TM\s*(\d+)\.(\d+)(?:\s*[–-]\s*(?:(\d+)\.)?(\d+))?/g)){
+    const a=+m[2],b=m[4]?+m[4]:a; for(let i=a;i<=b;i++) refs.tm.push([+m[1],i]); }
+  for(const m of txt.matchAll(/LAB\s*(\d+[ab]?)/gi)) refs.labs.push(m[1]);
+  const q=txt.match(/Quiz\s*TM\s*(\d+)\s*Q(\d+)\s*[–-]\s*(\d+)/i);
+  if(q) refs.quiz={ch:+q[1],a:+q[2],b:+q[3]};
+  const tk=txt.match(/Tickets?\s*(\d+)\s*[–-]\s*(\d+)/i); if(tk) refs.tickets=[+tk[1],+tk[2]];
+  for(const m of txt.matchAll(/EIP\s*§(\d+)(?:\s*[–-]\s*(\d+))?/g)){
+    const a=+m[1],b=m[2]?+m[2]:a; for(let i=a;i<=b;i++) refs.eip.push(i); }
+  refs.tm=[...new Set(refs.tm.map(x=>x.join('.')))].map(s=>s.split('.').map(Number));
+  refs.labs=[...new Set(refs.labs)]; refs.eip=[...new Set(refs.eip)];
+  return refs;
+}
+function buildSlice(day){
+  const row=calendarRows()[day]; if(!row) return null;
+  const refs=dayRefs(row); let parts=[`## CALENDAR ROW — DAY ${day} (${row.date})`,
+    `Topic: ${row.topic}\nHands-on: ${row.hands}\nClose: ${row.close}\nReview: ${row.review}`];
+  for(const [c,m] of refs.tm){ const s=getTM(c,m); if(s) parts.push(s); }
+  for(const l of refs.labs){ const s=getLAB(l); if(s) parts.push(s); }
+  for(const n of refs.eip){ const s=getEIP(n); if(s) parts.push(s); }
+  return { row, refs, text: parts.join('\n\n---\n\n') };
+}
+function extractQuiz(slice, quiz){
+  if(!quiz) return null;
+  const find = src => {
+    const re = new RegExp('\\*\\*Quiz TM '+quiz.ch+' Q'+quiz.a+'[–-]'+quiz.b+'[\\s\\S]*?(?=\\*\\*Key)','m');
+    const m = src.match(re); if(!m) return null;
+    const after = src.slice(m.index + m[0].length);
+    const k = after.match(/^\*\*Key(?: \(terse\))?:\*\*[\s\S]*?(?=\n## |\n---|$)/);
+    return { block:m[0], key:k?k[0]:'' };
+  };
+  let hit = find(slice.text);
+  if(!hit){ // quiz may live in a sibling section not sliced today (e.g. Day 78)
+    let corpus=''; for(let p=1;p<=5;p++) corpus+=fileByPrefix('04_TEACHER_MANUAL_PART'+p)+'\n';
+    hit = find(corpus);
+  }
+  if(!hit) return null;
+  const qs=[...hit.block.matchAll(/^(\d+)\.\s+([\s\S]*?)(?=^\d+\.|\s*$)/gm)]
+    .map(x=>({n:+x[1],q:x[2].trim()})).filter(x=>x.n>=quiz.a&&x.n<=quiz.b);
+  return { qs, key: hit.key };
+}
+</script>
+<script>
+/* ---------------- API layer ---------------- */
+const Models = () => LS.get('models', { grade:'claude-sonnet-4-6', heavy:'claude-opus-4-8', gen:'claude-haiku-4-5-20251001' });
+const Prices = () => LS.get('prices', { // €/Mtok approx; editable in settings
+  'claude-sonnet-4-6':{i:3,o:15}, 'claude-opus-4-8':{i:15,o:75}, 'claude-haiku-4-5-20251001':{i:1,o:5} });
+let USAGE = LS.get('usage', {calls:0,cost:0});
+function addUsage(model,u){
+  const p=Prices()[model]||{i:3,o:15};
+  const inTok=(u.input_tokens||0)+(u.cache_creation_input_tokens||0)*1.25+(u.cache_read_input_tokens||0)*0.1;
+  USAGE.cost += (inTok*p.i + (u.output_tokens||0)*p.o)/1e6;
+  USAGE.calls++; LS.set('usage',USAGE);
+  $('cost').textContent='€'+USAGE.cost.toFixed(3); $('calls').textContent=USAGE.calls;
+}
+async function callClaude({model, system, messages, max_tokens=2500}){
+  const key=LS.get('apikey',''); if(!key) throw new Error('No API key set (⚙ settings).');
+  const r=await fetch('https://api.anthropic.com/v1/messages',{method:'POST',headers:{
+    'content-type':'application/json','x-api-key':key,'anthropic-version':'2023-06-01',
+    'anthropic-dangerous-direct-browser-access':'true'},
+    body:JSON.stringify({model,max_tokens,system,messages})});
+  const data=await r.json();
+  if(data.error) throw new Error(data.error.message||JSON.stringify(data.error));
+  if(data.usage) addUsage(model,data.usage);
+  return data.content.filter(b=>b.type==='text').map(b=>b.text).join('\n');
+}
+function pJSON(t){ const s=t.indexOf('{'), e=t.lastIndexOf('}');
+  return JSON.parse(t.slice(s,e+1)); }
+const MENTOR = `You are the strict mentor of the DNS Mastery System grading Carlos, an intermediate network engineer training to senior enterprise DNS engineer. Grading law: vague = zero; "kind of right" = half at best; full credit requires mechanism-level precision (which cache, governed by what field, proven by which command). Never inflate. Feedback per item: one or two sentences stating exactly what a full-credit answer contains. For lab-output reviews: verify the pasted evidence actually shows what the lab intended (flags, TTLs, serials, rcodes); if wrong or incomplete, say precisely what is missing. Be terse, specific, constructive. No praise unless genuinely E-tier.`;
+function sysBlocks(slice){
+  const b=[{type:'text',text:MENTOR,cache_control:{type:'ephemeral'}}];
+  if(slice) b.push({type:'text',text:'TODAY\'S CURRICULUM SLICE (authoritative for keys):\n\n'+slice,cache_control:{type:'ephemeral'}});
+  b.push({type:'text',text:'STATE: day '+S.day+'; baseline 35 (0-39 band adjustments active); weak topics: '+S.weakTopics.slice(0,6).join('; ')});
+  return b;
+}
+async function gradeBatch(items, slice, heavy=false){
+  const model = heavy?Models().heavy:Models().grade;
+  const txt = await callClaude({model, system:sysBlocks(slice), messages:[{role:'user',content:
+`Grade every item. Respond ONLY with JSON:
+{"items":[{"id":"...","score":0,"max":2,"feedback":"..."}],"weak_topics_add":["..."],"summary":"one paragraph","journal":"5-line first-person journal entry"}
+Scores: use the max given per item; half-points allowed.
+ITEMS:
+`+JSON.stringify(items,null,1)}], max_tokens:3000});
+  return pJSON(txt);
+}
+async function genBank(sectionText, label){
+  const banks=LS.get('banks',{}); if(banks[label]) return banks[label];
+  const txt=await callClaude({model:Models().gen, system:[{type:'text',text:MENTOR}],
+    messages:[{role:'user',content:`From this curriculum section, write 8 fresh Socratic interrogation questions (new wording, same concepts, at least 2 scenario-based). JSON only:
+{"questions":[{"q":"...","model_answer":"...","trap":"..."}]}
+
+SECTION:
+`+sectionText.slice(0,9000)}],max_tokens:2500});
+  const bank=pJSON(txt).questions; banks[label]=bank; LS.set('banks',banks); return bank;
+}
+
+/* ---------------- session engine ---------------- */
+let SES=null; // {mode, phase, slice, queue:[], answers:{}, ...}
+const PHASES=['review','lesson','lab','close','grade'];
+let ttl={left:150*60, run:null};
+function ttlStart(mins){ ttl.left=mins*60; clearInterval(ttl.run);
+  ttl.run=setInterval(()=>{ ttl.left=Math.max(0,ttl.left-1); ttlDraw(); },1000); ttlDraw(); }
+function ttlDraw(){ const m=String(Math.floor(ttl.left/60)),s=String(ttl.left%60).padStart(2,'0');
+  $('ttlT').textContent=m+':'+s;
+  $('ttlArc').style.strokeDashoffset = 169.6*(1-ttl.left/(150*60)); }
+function drawPhases(){
+  $('phaseList').innerHTML = SES&&SES.mode==='class' ? PHASES.map((p,i)=>{
+    const st = i<SES.phase?'done':i===SES.phase?'cur':'';
+    const mk = i<SES.phase?'✓':i===SES.phase?'▶':'·';
+    return `<div class="ph ${st}"><span class="mk">${mk}</span>${p}</div>`;}).join('')
+    : SES?`<div class="ph cur"><span class="mk">▶</span>${SES.mode}</div>`:'';
+}
+function setHead(t,s){ $('hTitle').textContent=t; $('hSub').textContent=s||''; }
+function bar(html){ $('bar').innerHTML=html; }
+function content(html){ $('content').innerHTML=html; $('content').scrollTop=0; }
+function refreshDay(){ $('dayN').textContent=String(S.day).padStart(3,'0');
+  $('dayD').textContent = haveCurriculum()?dayDate(S.day)+' · '+((calendarRows()[S.day]||{}).topic||'').replace(/\*/g,'').slice(0,44):'load curriculum'; }
+
+/* ---------------- UI: home / setup / settings ---------------- */
+const UI={
+home(){
+  SES=null; drawPhases(); refreshDay();
+  if(!haveCurriculum()) return UI.setup();
+  const row=calendarRows()[S.day]||{topic:'(no row — see calendar)'};
+  setHead('Session menu','Day '+S.day+' · '+dayDate(S.day));
+  content(`<div class="card"><h3>Today</h3><div>${md('**Day '+S.day+'** — '+row.topic)}</div>
+    <div class="note">${esc(row.review?('Review item: '+row.review):'')}</div></div>
+  <div class="menu">
+    <button onclick="Cls.start()"><div class="mt">class</div><div class="md">today's full session — review → lesson → lab → close → grade</div></button>
+    <button onclick="Modes.exam()"><div class="mt">exam</div><div class="md">weekly exam: generated fresh, administered, graded</div></button>
+    <button onclick="Modes.ticketMenu()"><div class="mt">ticket</div><div class="md">live ticket role-play (you interrogate, then diagnose)</div></button>
+    <button onclick="Modes.fault()"><div class="mt">arm a fault</div><div class="md">blind fault card — inject, diagnose cold, then reveal</div></button>
+    <button onclick="Modes.oralMenu()"><div class="mt">oral</div><div class="md">oral-pack drill with tiered self/mentor grading</div></button>
+    <button onclick="Modes.retro()"><div class="mt">retro</div><div class="md">Sunday retrospective — four questions, journal written</div></button>
+    <button onclick="Modes.freeform()"><div class="mt">question</div><div class="md">off-calendar help from the mentor (bounded chat)</div></button>
+    <button onclick="Modes.dayPick()"><div class="mt">set day</div><div class="md">jump / catch-up: change current day number</div></button>
+  </div>`);
+  bar('');
+},
+setup(){
+  setHead('First run','load the curriculum');
+  const have=Object.keys(CUR);
+  content(`<div class="card"><h3>1 · API key</h3>
+    <input type="password" id="setKey" placeholder="sk-ant-..." value="${esc(LS.get('apikey',''))}">
+    <div class="note">Stored only in this browser's localStorage. Never in the repo.</div></div>
+  <div class="card"><h3>2 · Curriculum files</h3>
+    <input type="file" id="setFiles" multiple accept=".md,.tsv">
+    <div class="note">Select ALL the .md files from C:\\dev\\dns-mastery (00–14 minimum; 03, 04_PART1–5, 06, 09, 10, 12 are required for full function).</div>
+    <div id="fileStat">${FILES_EXPECTED.map(p=>`<span class="pill ${have.some(f=>f.startsWith(p))?'ok':'miss'}">${p.slice(0,18)}</span>`).join('')}</div></div>
+  <div class="card"><h3>3 · Position</h3>
+    <div class="setrow"><label>Current day</label><input type="text" id="setDay" value="${S.day}" style="width:80px"></div>
+    <div class="setrow"><label>Day-1 real date</label><input type="text" id="setD1" value="${S.day1date}" style="width:140px"></div>
+    <div class="note">Pre-seeded: baseline 35, 0–39 adjustments, Week-4 retake gate.</div></div>`);
+  bar(`<div class="spacer"></div><button class="pri" onclick="UI.setupSave()">Save & open classroom</button>`);
+  $('setFiles').onchange = async e=>{
+    for(const f of e.target.files){ CUR[f.name]=await f.text(); }
+    LS.set('curriculum',CUR);
+    $('fileStat').innerHTML=FILES_EXPECTED.map(p=>`<span class="pill ${Object.keys(CUR).some(x=>x.startsWith(p))?'ok':'miss'}">${p.slice(0,18)}</span>`).join('');
+  };
+},
+setupSave(){
+  LS.set('apikey',$('setKey').value.trim());
+  S.day=parseInt($('setDay').value)||S.day; S.day1date=$('setD1').value.trim()||S.day1date;
+  saveS(); UI.home();
+},
+settings(){
+  const m=Models();
+  const dlg=$('dlg'); dlg.innerHTML=`<h3 style="font-family:var(--mono);color:var(--amber);margin-bottom:12px">Settings</h3>
+   <div class="setrow"><label>API key</label><input type="password" id="sKey" value="${esc(LS.get('apikey',''))}"></div>
+   <div class="setrow"><label>Grading model</label><input type="text" id="sG" value="${m.grade}"></div>
+   <div class="setrow"><label>Heavy model (exams)</label><input type="text" id="sH" value="${m.heavy}"></div>
+   <div class="setrow"><label>Generator model</label><input type="text" id="sN" value="${m.gen}"></div>
+   <div class="setrow"><label>Reload curriculum</label><input type="file" id="sF" multiple accept=".md,.tsv"></div>
+   <div class="setrow"><label>Danger</label><button class="sec" onclick="if(confirm('Wipe ALL classroom data?')){localStorage.clear();location.reload()}">wipe everything</button></div>
+   <div style="display:flex;gap:10px;justify-content:flex-end;margin-top:14px">
+     <button class="sec" onclick="$('dlg').close()">Close</button>
+     <button class="pri" onclick="UI.settingsSave()">Save</button></div>`;
+  dlg.showModal();
+  $('sF').onchange=async e=>{for(const f of e.target.files){CUR[f.name]=await f.text()} LS.set('curriculum',CUR); refreshDay();};
+},
+settingsSave(){
+  LS.set('apikey',$('sKey').value.trim());
+  LS.set('models',{grade:$('sG').value.trim(),heavy:$('sH').value.trim(),gen:$('sN').value.trim()});
+  $('dlg').close(); UI.home();
+}
+};
+
+/* ---------------- CLASS mode ---------------- */
+const Cls={
+async start(){
+  const slice=buildSlice(S.day);
+  if(!slice) return alert('No calendar row for day '+S.day+'. Use "set day".');
+  SES={mode:'class',phase:0,slice,queue:[],quizSelf:{},banks:null};
+  ttlStart(150); drawPhases(); Cls.review();
+},
+review(){
+  SES.phase=0; drawPhases();
+  setHead('Review','recall before recognition');
+  const row=SES.slice.row;
+  const items=[{id:'rv1',label:'Yesterday / review item',q:'Explain from memory: '+(row.review||'yesterday\'s core mechanism')+'. Mechanism level — name the components, fields, and commands involved.'}];
+  const wt=S.weakTopics[0]; if(wt) items.push({id:'rv2',label:'Weak-topic drill',q:'Weak topic on the queue: "'+wt+'". Write the full-credit explanation.'});
+  content(items.map(it=>`<div class="qitem"><div class="ql">${it.label}</div><div class="qq">${esc(it.q)}</div>
+    <textarea id="a_${it.id}" placeholder="written answer, no notes"></textarea></div>`).join(''));
+  SES._review=items;
+  bar(`<div class="spacer"></div><button class="pri" onclick="Cls.reviewNext()">Queue for grading → Lesson</button>`);
+},
+reviewNext(){
+  for(const it of SES._review){ const a=$('a_'+it.id).value.trim();
+    if(a) SES.queue.push({id:it.id,type:'recall',max:2,question:it.q,answer:a}); }
+  Cls.lesson();
+},
+async lesson(){
+  SES.phase=1; drawPhases();
+  setHead('Lesson','read actively — interrogation follows');
+  const tmParts = SES.slice.refs.tm.map(([c,m])=>getTM(c,m)).filter(Boolean);
+  const body = tmParts.length?tmParts.join('\n\n---\n\n'):'*No TM sections mapped for this day — follow the calendar row instructions.*';
+  content(`<div class="lesson">${md(body)}</div><div id="soc"></div>`);
+  bar(`<button class="sec" id="socBtn" onclick="Cls.socratic()">Interrogate me (uses 1 gen call if no bank)</button>
+    <div class="spacer"></div><button class="pri" onclick="Cls.lab()">→ Lab</button>`);
+},
+async socratic(){
+  const [c,m]=SES.slice.refs.tm[0]||[]; if(!c) return;
+  const label='TM'+c+'.'+m; $('socBtn').disabled=true; $('socBtn').textContent='…';
+  try{
+    const bank=await genBank(getTM(c,m),label);
+    const pick=[...bank].sort(()=>Math.random()-.5).slice(0,3);
+    $('soc').innerHTML=pick.map((b,i)=>`<div class="qitem"><div class="ql">Interrogation ${i+1}</div>
+      <div class="qq">${esc(b.q)}</div><textarea id="soc_${i}"></textarea></div>`).join('');
+    SES._soc=pick;
+    bar(`<div class="spacer"></div><button class="pri" onclick="Cls.socQueue()">Queue answers → Lab</button>`);
+  }catch(e){ $('soc').innerHTML='<div class="err">'+esc(e.message)+'</div>'; $('socBtn').disabled=false; $('socBtn').textContent='retry'; }
+},
+socQueue(){
+  SES._soc.forEach((b,i)=>{ const a=$('soc_'+i).value.trim();
+    if(a) SES.queue.push({id:'soc'+i,type:'socratic',max:2,question:b.q,answer:a,key:b.model_answer}); });
+  Cls.lab();
+},
+lab(){
+  SES.phase=2; drawPhases();
+  setHead('Lab','your hands, your evidence');
+  const labs=SES.slice.refs.labs.map(getLAB).filter(Boolean);
+  const body=labs.length?labs.join('\n\n---\n\n'):SES.slice.row.hands||'*Follow the calendar hands-on column.*';
+  content(`<div class="lesson">${md(body)}</div>
+   <div class="qitem"><div class="ql">Evidence paste</div>
+     <div class="qq">Paste your key command outputs (dig/logs/configs). The mentor verifies flags, TTLs, serials, rcodes against the lab's intent.</div>
+     <textarea id="labPaste" style="min-height:160px" placeholder="$ labdig @172.20.0.53 app1.corp.example ..."></textarea></div>
+   <div class="note">Also save this paste to dns-journal/proofs/${String(S.day).padStart(3,'0')}-topic.txt before commit.</div>`);
+  bar(`<div class="spacer"></div><button class="pri" onclick="Cls.labNext()">Queue evidence → Close</button>`);
+},
+labNext(){
+  const p=$('labPaste').value.trim();
+  if(p) SES.queue.push({id:'lab',type:'lab-review',max:3,question:'Verify this lab evidence for Day '+S.day+' ('+SES.slice.refs.labs.join(',')+'): does it demonstrate the intended behavior? What is missing?',answer:p});
+  Cls.close();
+},
+close(){
+  SES.phase=3; drawPhases();
+  setHead('Close','explain, then quiz');
+  const row=SES.slice.row;
+  const exp=(row.close.match(/Explain:?\s*([^.]+[.?])/i)||[])[1]||'Explain today\'s core mechanism to a senior engineer.';
+  let html=`<div class="qitem"><div class="ql">Explain to a senior (no notes)</div><div class="qq">${esc(exp)}</div>
+    <textarea id="expl" style="min-height:120px"></textarea></div>`;
+  const qz=extractQuiz(SES.slice,SES.slice.refs.quiz);
+  SES._quiz=qz;
+  if(qz&&qz.qs.length){
+    html+=`<div class="card"><h3>Quiz — TM ${SES.slice.refs.quiz.ch} Q${SES.slice.refs.quiz.a}–${SES.slice.refs.quiz.b}</h3>`+
+      qz.qs.map(q=>`<div class="qitem"><div class="ql">Q${q.n}</div><div class="qq">${esc(q.q)}</div>
+        <textarea id="qz_${q.n}"></textarea>
+        <div class="scorebtns" id="sb_${q.n}" style="display:none">
+          <button onclick="Cls.self(${q.n},0)">0</button><button onclick="Cls.self(${q.n},0.5)">½</button><button onclick="Cls.self(${q.n},1)">1</button></div></div>`).join('')+
+      `<div id="qzKey"></div></div>`;
+  }
+  content(html);
+  bar(`${qz?'<button class="sec" onclick="Cls.revealKey()">Reveal key — self-score (free)</button>':''}
+   <div class="spacer"></div><button class="pri" onclick="Cls.toGrade(false)">Send batch to mentor</button>`);
+},
+revealKey(){
+  const qz=SES._quiz; if(!qz)return;
+  $('qzKey').innerHTML=`<div class="keybox">${esc(qz.key)}</div>`;
+  qz.qs.forEach(q=>$('sb_'+q.n).style.display='flex');
+  bar(`<div class="spacer"></div><span class="qcount">self-score each, then</span>
+    <button class="pri" onclick="Cls.toGrade(true)">Finish (quiz self-scored)</button>`);
+},
+self(n,v){ SES.quizSelf[n]=v; const sb=$('sb_'+n);
+  [...sb.children].forEach(b=>b.className='');
+  sb.children[v===0?0:v===0.5?1:2].className=v===0?'on0':v===0.5?'onH':'on1'; },
+async toGrade(selfScored){
+  const e=$('expl')&&$('expl').value.trim();
+  if(e) SES.queue.push({id:'explain',type:'explain-to-senior',max:4,question:'Day '+S.day+' explain task',answer:e});
+  if(SES._quiz&&!selfScored){ // send quiz answers to mentor too
+    SES._quiz.qs.forEach(q=>{ const a=$('qz_'+q.n).value.trim();
+      if(a) SES.queue.push({id:'q'+q.n,type:'quiz',max:1,question:q.q,answer:a}); }); }
+  Cls.grade(selfScored);
+},
+async grade(selfScored){
+  SES.phase=4; drawPhases(); setHead('Grading','one batched call');
+  content('<div class="card"><h3>Grading</h3><div class="note" id="gmsg">Sending '+SES.queue.length+' items…</div></div>');
+  bar('');
+  let res={items:[],summary:'',journal:'',weak_topics_add:[]};
+  try{
+    if(SES.queue.length) res=await gradeBatch(SES.queue,SES.slice.text);
+  }catch(err){ return content('<div class="err">'+esc(err.message)+'</div><div class="note">Fix key/model in ⚙ settings, then re-run grade.</div>'),
+      bar('<div class="spacer"></div><button class="pri" onclick="Cls.grade('+selfScored+')">Retry</button>'); }
+  // combine mentor + self scores
+  let got=0,max=0;
+  const rows=res.items.map(it=>{ got+=it.score; max+=it.max;
+    const cls=it.score>=it.max?'g1':it.score>0?'gh':'g0';
+    return `<div class="grade"><div class="gs ${cls}">${it.score}/${it.max}</div><div class="gf"><b>${esc(it.id)}</b> — ${esc(it.feedback||'')}</div></div>`; }).join('');
+  let selfHtml='';
+  if(selfScored&&SES._quiz){ let sg=0,sm=0;
+    SES._quiz.qs.forEach(q=>{ if(q.n in SES.quizSelf){sg+=SES.quizSelf[q.n];sm+=1;} });
+    got+=sg; max+=sm; selfHtml=`<div class="grade"><div class="gs ${sg/sm>=.8?'g1':'gh'}">${sg}/${sm}</div><div class="gf"><b>quiz (self-scored)</b></div></div>`; }
+  const pct=max?Math.round(100*got/max):0;
+  // persist
+  S.done[S.day]={score:got,max,pct,date:new Date().toISOString().slice(0,10)};
+  (res.weak_topics_add||[]).forEach(w=>{ if(!S.weakTopics.includes(w)) S.weakTopics.push(w); });
+  if(pct>=80&&S.weakTopics.length) {/* leave queue pruning to retro */}
+  const jr=(res.journal||'Day '+S.day+' complete.');
+  S.journal.push({day:S.day,date:new Date().toISOString().slice(0,10),entry:jr,pct});
+  saveS();
+  content(`<div class="card"><h3>Scorecard — Day ${S.day} · ${pct}% ${pct>=80?'· PASS':'· <span style="color:var(--bad)">REMEDIATE</span>'}</h3>${rows}${selfHtml}
+    <div class="note" style="margin-top:10px">${esc(res.summary||'')}</div></div>
+   <div class="card"><h3>Journal (copy to dns-journal/daily/)</h3><div class="keybox">${esc(jr)}</div></div>
+   <div class="note">${pct<80?'Score <80%: this day\'s topics enter tomorrow\'s Review and Saturday\'s exam (file 12 §4).':'Clean. Tomorrow: Day '+(S.day+1)+'.'}</div>`);
+  bar(`<button class="sec" onclick="Exports.state()">↓ STATE.md</button>
+   <button class="sec" onclick="Exports.journalDay(${S.day})">↓ journal file</button>
+   <div class="spacer"></div>
+   <button class="pri" onclick="S.day++;saveS();UI.home()">Complete day → Day ${S.day+1}</button>`);
+}
+};
+</script>
+<script>
+/* ---------------- other modes ---------------- */
+const Modes={
+/* ---- weekly exam: 1 gen call (heavy) + 1 grade call ---- */
+async exam(){
+  SES={mode:'exam'}; drawPhases(); ttlStart(90);
+  setHead('Weekly exam','generated fresh · closed book');
+  content('<div class="card"><h3>Assembling</h3><div class="note">Generating a fresh exam from this week\'s sections (1 heavy call)…</div></div>'); bar('');
+  const wkDays=[]; for(let d=Math.max(2,S.day-6);d<=S.day;d++) if(calendarRows()[d]) wkDays.push(d);
+  const secs=[...new Set(wkDays.flatMap(d=>dayRefs(calendarRows()[d]).tm.map(x=>x.join('.'))))];
+  const mat=secs.map(s=>{const[c,m]=s.split('.');return getTM(+c,+m)}).filter(Boolean).join('\n\n').slice(0,28000);
+  try{
+    const txt=await callClaude({model:Models().heavy,system:[{type:'text',text:MENTOR,cache_control:{type:'ephemeral'}}],
+      messages:[{role:'user',content:`Assemble a weekly exam per the DNS Mastery weekly engine: 8 reworded written questions (1.5pts each) + 2 senior-oral-style questions (3pts) + 1 explain-to-a-senior prompt (2pts) + 2 practical evidence tasks (3pts, ask for specific lab-command evidence) — all derived ONLY from this material, fresh wording, scenario-flavored where possible. JSON only:
+{"written":[{"q":"...","max":1.5,"key":"full-credit answer"}],"oral":[{"q":"...","max":3,"key":"..."}],"explain":{"q":"...","max":2,"key":"..."},"practical":[{"q":"...","max":3,"expected":"what the evidence must show"}]}
+MATERIAL:\n`+mat}],max_tokens:4000});
+    SES.exam=pJSON(txt);
+  }catch(e){ return content('<div class="err">'+esc(e.message)+'</div>'),bar('<div class="spacer"></div><button class="pri" onclick="Modes.exam()">Retry</button>'); }
+  const E=SES.exam; let i=0;
+  const block=(arr,lab)=>arr.map(q=>`<div class="qitem"><div class="ql">${lab} · ${q.max}pt</div><div class="qq">${esc(q.q)}</div><textarea id="ex_${i++}"></textarea></div>`).join('');
+  content(`<div class="note">90 minutes. Answer everything, then submit once. Practical tasks: run in the lab and paste evidence.</div>`+
+    block(E.written,'written')+block(E.oral,'oral')+block([E.explain],'explain')+block(E.practical,'practical'));
+  SES.examN=i;
+  bar('<div class="spacer"></div><button class="pri" onclick="Modes.examSubmit()">Submit exam (1 grading call)</button>');
+},
+async examSubmit(){
+  const E=SES.exam; const all=[...E.written,...E.oral,E.explain,...E.practical];
+  const items=all.map((q,i)=>({id:'X'+(i+1),type:q.expected?'practical-evidence':'exam',max:q.max,
+    question:q.q,answer:($('ex_'+i)?$('ex_'+i).value.trim():''),key:q.key||q.expected}));
+  content('<div class="note">Grading…</div>');bar('');
+  try{
+    const res=await gradeBatch(items,null,true);
+    let got=0,max=0; res.items.forEach(it=>{got+=it.score;max+=it.max;});
+    const pct=Math.round(100*got/max);
+    S.scores.weekly.push({day:S.day,pct,date:new Date().toISOString().slice(0,10)});
+    (res.weak_topics_add||[]).forEach(w=>{if(!S.weakTopics.includes(w))S.weakTopics.push(w);});
+    S.journal.push({day:S.day,date:new Date().toISOString().slice(0,10),entry:'WEEKLY EXAM: '+pct+'%. '+(res.summary||''),pct});
+    saveS();
+    content(`<div class="card"><h3>Exam result · ${pct}% ${pct>=85?'· PASS':'· <span style="color:var(--bad)">GATE FAILED — remediation per file 12 §4</span>'}</h3>`+
+      res.items.map(it=>`<div class="grade"><div class="gs ${it.score>=it.max?'g1':it.score>0?'gh':'g0'}">${it.score}/${it.max}</div><div class="gf"><b>${it.id}</b> — ${esc(it.feedback||'')}</div></div>`).join('')+
+      `<div class="note" style="margin-top:10px">${esc(res.summary||'')}</div></div>`);
+    bar('<button class="sec" onclick="Exports.state()">↓ STATE.md</button><div class="spacer"></div><button class="pri" onclick="UI.home()">Done</button>');
+  }catch(e){content('<div class="err">'+esc(e.message)+'</div>');bar('<div class="spacer"></div><button class="pri" onclick="Modes.examSubmit()">Retry</button>');}
+},
+/* ---- ticket role-play: bounded chat + graded diagnosis ---- */
+ticketMenu(){
+  SES={mode:'ticket'}; drawPhases();
+  setHead('Ticket simulator','pick one');
+  const done=new Set(S.scores.tickets.map(t=>t.n));
+  let pills=''; for(let n=1;n<=50;n++) pills+=`<button class="sec" style="margin:2px;${done.has(n)?'opacity:.4':''}" onclick="Modes.ticket(${n})">T${String(n).padStart(2,'0')}</button>`;
+  content('<div class="card"><h3>Tickets 1–50</h3>'+pills+'<div class="note">Faded = already attempted. Calendar suggests tickets from Week 12; nothing stops an early one.</div></div>');
+  bar('');
+},
+ticket(n){
+  const tk=getTicket(n); if(!tk) return alert('Ticket files not loaded.');
+  SES={mode:'ticket',tk,chat:[],turns:0}; drawPhases(); ttlStart(30);
+  setHead('T'+String(n).padStart(2,'0'),'interrogate the reporter, then diagnose');
+  Modes.ticketDraw();
+},
+ticketDraw(){
+  const t=SES.tk;
+  content(`<div class="lesson">${md(t.visible)}</div>
+   <div class="card"><h3>Interrogation (${SES.turns}/8 turns)</h3><div class="chat" id="tchat">${
+     SES.chat.map(m=>`<div class="msg ${m.r}">${esc(m.t)}</div>`).join('')}</div>
+   <div style="display:flex;gap:8px;margin-top:10px"><input type="text" id="tq" placeholder="ask the reporter / state a command you run and ask what it returns">
+   <button class="sec" onclick="Modes.ticketAsk()">Ask</button></div></div>
+   <div class="qitem"><div class="ql">Written diagnosis (required before reveal)</div>
+     <div class="qq">Cause · proof commands · fix · the red herring you rejected — the 5-point rubric.</div>
+     <textarea id="tdx" style="min-height:120px"></textarea></div>`);
+  bar('<div class="spacer"></div><button class="pri" onclick="Modes.ticketSubmit()">Submit diagnosis (1 call)</button>');
+},
+async ticketAsk(){
+  if(SES.turns>=8) return alert('Turn cap reached — diagnose with what you have.');
+  const q=$('tq').value.trim(); if(!q)return; SES.chat.push({r:'u',t:q}); SES.turns++;
+  Modes.ticketDraw(); $('tq').value='';
+  try{
+    const a=await callClaude({model:Models().grade,system:[
+      {type:'text',text:'You role-play the ticket reporter/environment. Full ticket (with answer) below — NEVER reveal Path/Diagnosis/answers. Answer only what the engineer asks: if they ask a user-question, answer in character (including red herrings as written); if they state a command they run, reply with the realistic output implied by the ticket\'s data/diagnosis. 1-4 sentences.',cache_control:{type:'ephemeral'}},
+      {type:'text',text:SES.tk.full,cache_control:{type:'ephemeral'}}],
+      messages:[...SES.chat.map(m=>({role:m.r==='u'?'user':'assistant',content:m.t}))],max_tokens:400});
+    SES.chat.push({r:'a',t:a}); Modes.ticketDraw();
+  }catch(e){ SES.chat.push({r:'a',t:'[error: '+e.message+']'}); Modes.ticketDraw(); }
+},
+async ticketSubmit(){
+  const dx=$('tdx').value.trim(); if(!dx) return alert('Write the diagnosis first — that is the whole exercise.');
+  content('<div class="note">Grading against the ticket rubric…</div>');bar('');
+  try{
+    const res=await gradeBatch([{id:'T'+SES.tk.n,type:'ticket-diagnosis',max:5,
+      question:'Grade per the 5-pt ticket rubric (2 diagnosis, 1 proof method, 1 red herring identified, 1 customer answer quality). Ticket with model answer:\n'+SES.tk.full,
+      answer:dx}],null,false);
+    const it=res.items[0]||{score:0,max:5,feedback:''};
+    S.scores.tickets.push({n:SES.tk.n,score:it.score,date:new Date().toISOString().slice(0,10)});
+    saveS();
+    content(`<div class="card"><h3>T${SES.tk.n} · ${it.score}/5 ${it.score>=4?'· PASS':'· miss → weak-topics'}</h3>
+      <div class="gf">${esc(it.feedback||'')}</div></div>
+      <div class="card"><h3>Model answer</h3><div class="lesson">${md(SES.tk.full.slice(SES.tk.visible.length))}</div></div>`);
+    if(it.score<4){const cls='ticket class T'+SES.tk.n; if(!S.weakTopics.includes(cls))S.weakTopics.push(cls);saveS();}
+    bar('<div class="spacer"></div><button class="sec" onclick="Modes.ticketMenu()">Another</button><button class="pri" onclick="UI.home()">Done</button>');
+  }catch(e){content('<div class="err">'+esc(e.message)+'</div>');bar('<div class="spacer"></div><button class="pri" onclick="Modes.ticketSubmit()">Retry</button>');}
+},
+/* ---- blind fault ---- */
+fault(){
+  const fl=getFaults(); if(!fl.length) return alert('Fault library not found (file 06).');
+  const f=fl[Math.floor(Math.random()*fl.length)];
+  SES={mode:'fault',f}; drawPhases(); ttlStart(20);
+  setHead('Armed fault','inject · diagnose cold · then reveal');
+  content(`<div class="card"><h3>Fault card #${f.n}</h3><div>${md(f.show)}</div>
+    <div class="note">Inject it in the lab now. Then diagnose from symptoms only, as if you didn't know — triage order applies (state before queries, evidence before surgery).</div></div>
+   <div class="qitem"><div class="ql">Diagnosis log</div><div class="qq">Layer named ≤5 min · proof command + output · fix + verify.</div>
+     <textarea id="fdx" style="min-height:140px"></textarea></div>`);
+  bar('<div class="spacer"></div><button class="pri" onclick="Modes.faultSubmit()">Submit & reveal</button>');
+},
+async faultSubmit(){
+  const dx=$('fdx').value.trim(); const f=SES.f;
+  content('<div class="note">Reviewing…</div>');bar('');
+  try{
+    const res=await gradeBatch([{id:'F'+f.n,type:'fault-diagnosis',max:6,
+      question:'Fault library card (with expected finding): '+f.full+'\nGrade: layer named (2), proof shown (2), fix+verify (2). Penalize any surgery-before-evidence.',
+      answer:dx||'(no diagnosis written)'}],null,false);
+    const it=res.items[0];
+    content(`<div class="card"><h3>Fault #${f.n} · ${it.score}/6</h3><div class="gf">${esc(it.feedback)}</div>
+      <div class="keybox" style="margin-top:10px">${esc(f.full)}</div></div>`);
+    bar('<div class="spacer"></div><button class="sec" onclick="Modes.fault()">Arm another</button><button class="pri" onclick="UI.home()">Done</button>');
+  }catch(e){content('<div class="err">'+esc(e.message)+'</div>');bar('<div class="spacer"></div><button class="pri" onclick="UI.home()">Home</button>');}
+},
+/* ---- oral drill ---- */
+oralMenu(){
+  setHead('Oral pack','pick a range');
+  const groups=[['Fundamentals',1,10],['Recursion',11,19],['Authoritative',20,27],['Caching/TTL',28,44],['Records/Zones',45,62],['Delegation/Reverse',63,69],['BIND',70,82],['EfficientIP',83,93],['DNSSEC',94,104],['Troubleshooting',105,115],['Change/Bulk',116,123],['Migration/DR',124,129],['Architecture',130,140],['Automation',141,144],['Meta',145,150]];
+  content('<div class="menu">'+groups.map(g=>`<button onclick="Modes.oral(${g[1]},${g[2]})"><div class="mt">${g[0]}</div><div class="md">Q${g[1]}–${g[2]}</div></button>`).join('')+'</div>');
+  bar('');
+},
+oral(a,b){
+  const pool=[]; for(let n=a;n<=b;n++){const q=getOral(n); if(q)pool.push(q);}
+  if(!pool.length) return alert('Oral pack (file 10) not loaded.');
+  SES={mode:'oral',pool:pool.sort(()=>Math.random()-.5).slice(0,5),i:0,results:[]};
+  drawPhases(); Modes.oralDraw();
+},
+oralDraw(){
+  const q=SES.pool[SES.i];
+  setHead('Oral drill','Q'+q.n+' · '+(SES.i+1)+'/'+SES.pool.length+' — answer ALOUD first, then type the skeleton');
+  content(`<div class="qitem"><div class="ql">Q${q.n}</div><div class="qq">${esc(q.q.replace(/^\*\*Q\d+\.\s*/,'').replace(/\*\*/g,''))}</div>
+    <textarea id="oa" placeholder="type the answer you just spoke — key points"></textarea></div><div id="orev"></div>`);
+  bar(`<button class="sec" onclick="Modes.oralReveal()">Reveal tiers — self-score (free)</button>
+    <div class="spacer"></div><button class="sec" onclick="Modes.oralNext(null)">Skip</button>`);
+},
+oralReveal(){
+  const q=SES.pool[SES.i];
+  $('orev').innerHTML=`<div class="keybox">${esc(q.full.slice(q.q.length))}</div>
+   <div class="scorebtns" style="max-width:320px">
+     <button onclick="Modes.oralNext('W')">W</button><button onclick="Modes.oralNext('A')">A</button><button onclick="Modes.oralNext('E')">E</button></div>`;
+},
+oralNext(tier){
+  const q=SES.pool[SES.i];
+  if(tier){ SES.results.push({n:q.n,tier}); S.scores.oral.push({n:q.n,tier,date:new Date().toISOString().slice(0,10)});
+    if(tier!=='E'&&!S.weakTopics.includes('oral Q'+q.n)) S.weakTopics.push('oral Q'+q.n); saveS(); }
+  SES.i++;
+  if(SES.i>=SES.pool.length){
+    content('<div class="card"><h3>Drill complete</h3>'+SES.results.map(r=>`<div class="grade"><div class="gs ${r.tier==='E'?'g1':r.tier==='A'?'gh':'g0'}">${r.tier}</div><div class="gf">Q${r.n}</div></div>`).join('')+'</div>');
+    bar('<div class="spacer"></div><button class="pri" onclick="UI.home()">Done</button>');
+  } else Modes.oralDraw();
+},
+/* ---- retro (free) ---- */
+retro(){
+  SES={mode:'retro'}; drawPhases();
+  setHead('Retrospective','file 14 §9 — the four questions');
+  const qs=['What can I now do that I couldn\'t last Sunday? (capabilities + the artifact proving each)',
+    'Where did I fool myself this week? (grades, skipped steps, hedges)',
+    'Single weakest link going into next week — and exactly what I do about it Monday?',
+    'Is the pace honest — compressing learning, or compressing proof?'];
+  content(qs.map((q,i)=>`<div class="qitem"><div class="ql">Q${i+1}</div><div class="qq">${esc(q)}</div><textarea id="rt_${i}"></textarea></div>`)
+    .join('')+`<div class="card"><h3>Weak-topics queue — prune</h3>${S.weakTopics.map((w,i)=>
+    `<div class="grade"><button class="sec" onclick="S.weakTopics.splice(${i},1);saveS();Modes.retro()">drop</button><div class="gf" style="margin-left:10px">${esc(w)}</div></div>`).join('')||'<div class="note">empty</div>'}</div>`);
+  bar('<div class="spacer"></div><button class="pri" onclick="Modes.retroSave()">Save retro to journal (free)</button>');
+},
+retroSave(){
+  const e='RETRO:\n'+[0,1,2,3].map(i=>'Q'+(i+1)+': '+$('rt_'+i).value.trim()).join('\n');
+  S.journal.push({day:S.day,date:new Date().toISOString().slice(0,10),entry:e,pct:null}); saveS();
+  UI.home();
+},
+/* ---- freeform mentor ---- */
+freeform(){
+  SES={mode:'question',chat:[]}; drawPhases();
+  setHead('Ask the mentor','off-calendar · senior-colleague mode');
+  Modes.ffDraw();
+},
+ffDraw(){
+  content(`<div class="chat" id="ffc">${SES.chat.map(m=>`<div class="msg ${m.r}">${m.r==='a'?md(m.t):esc(m.t)}</div>`).join('')}</div>
+   <div style="display:flex;gap:8px;margin-top:14px"><input type="text" id="ffq" placeholder="work incident, curiosity, anything DNS">
+   <button class="pri" onclick="Modes.ffAsk()">Ask</button></div>`);
+  bar('<div class="spacer"></div><button class="sec" onclick="UI.home()">Done</button>');
+  const el=$('ffq'); el.focus(); el.onkeydown=e=>{if(e.key==='Enter')Modes.ffAsk();};
+},
+async ffAsk(){
+  const q=$('ffq').value.trim(); if(!q)return;
+  SES.chat.push({r:'u',t:q}); Modes.ffDraw();
+  try{
+    const a=await callClaude({model:Models().grade,system:[{type:'text',text:
+      'Senior DNS colleague mode: answer fully and practically, no exam games. If the question exposes a gap in fundamentals, say so plainly and name the topic.'}],
+      messages:SES.chat.map(m=>({role:m.r==='u'?'user':'assistant',content:m.t})),max_tokens:1500});
+    SES.chat.push({r:'a',t:a}); Modes.ffDraw();
+  }catch(e){SES.chat.push({r:'a',t:'[error: '+e.message+']'});Modes.ffDraw();}
+},
+dayPick(){
+  const d=prompt('Set current day (1–132):',S.day);
+  if(d){S.day=Math.max(1,Math.min(132,parseInt(d)||S.day));saveS();UI.home();}
+}
+};
+
+/* ---------------- exports ---------------- */
+const Exports={
+dl(name,text){ const a=document.createElement('a');
+  a.href=URL.createObjectURL(new Blob([text],{type:'text/markdown'})); a.download=name; a.click(); },
+state(){
+  const w=S.scores.weekly.map(x=>`Day ${x.day}: ${x.pct}%`).join('; ')||'none yet';
+  const t=S.scores.tickets.length?S.scores.tickets.length+' attempted, avg '+(S.scores.tickets.reduce((a,b)=>a+b.score,0)/S.scores.tickets.length).toFixed(1)+'/5':'0 attempted';
+  Exports.dl('20_STATE.md',
+`# 20 — STATE (exported ${new Date().toISOString().slice(0,16)} by classroom app)
+
+## POSITION
+- Day 1 actual date: ${S.day1date} (all file-03 dates shift accordingly)
+- Current day: ${S.day} (${dayDate(S.day)})
+- Days completed: ${Object.keys(S.done).length} — last: ${Object.entries(S.done).slice(-1).map(([d,v])=>'Day '+d+' '+v.pct+'%')[0]||'—'}
+
+## SCORES
+- Baseline: ${S.scores.baseline}/100 (0–39 band adjustments active)
+- Weekly exams: ${w}
+- Tickets: ${t}
+- Oral: ${S.scores.oral.length} answered (${S.scores.oral.filter(o=>o.tier==='E').length} E-tier)
+
+## ACTIVE ADJUSTMENTS
+${S.adjustments.map(a=>'- '+a).join('\n')}
+
+## WEAK TOPICS QUEUE
+${S.weakTopics.map(x=>'- '+x).join('\n')||'- (empty)'}
+
+## SPEND
+- ${USAGE.calls} API calls · €${USAGE.cost.toFixed(2)} estimated
+
+## NOTES FOR THE MENTOR
+- Environment: Docker Desktop + WSL2, Pattern A (client container, labdig alias).
+- Grade strictly; vague = zero.
+`);},
+journal(){ Exports.dl('journal-export.md', S.journal.map(j=>`## Day ${j.day} — ${j.date}${j.pct!=null?' · '+j.pct+'%':''}\n${j.entry}\n`).join('\n')); },
+journalDay(d){ const j=[...S.journal].reverse().find(x=>x.day===d);
+  if(j) Exports.dl(j.date+'.md',`# Day ${d} — ${j.date}\n\n${j.entry}\n`); },
+backup(){ Exports.dl('classroom-backup.json', JSON.stringify({state:S,usage:USAGE,banks:LS.get('banks',{})},null,1)); }
+};
+
+/* ---------------- boot ---------------- */
+$('cost').textContent='€'+USAGE.cost.toFixed(3); $('calls').textContent=USAGE.calls;
+ttlDraw(); refreshDay();
+haveCurriculum() ? UI.home() : UI.setup();
+</script>
+</body>
+</html>
