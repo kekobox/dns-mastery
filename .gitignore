@@ -1,14 +1,5 @@
-# Personal journal content stays local by default — see note in README.
-# Untrack the daily logs/proofs/exam scores themselves; keep the folder
-# structure via .gitkeep so git tracks the scaffold, not the diary.
-dns-journal/daily/*
-dns-journal/proofs/*
-dns-journal/exams/*
-!dns-journal/daily/.gitkeep
-!dns-journal/proofs/.gitkeep
-!dns-journal/exams/.gitkeep
-
-# OS/editor noise
+# Private repo — journal content is tracked. Only OS/editor/runtime
+# noise is excluded here.
 .DS_Store
 Thumbs.db
 *.swp
